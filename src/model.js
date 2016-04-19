@@ -95,7 +95,6 @@ export default class Model {
 
   fill (props) {
     this.$fillable(props).forEach((prop) => {
-      console.log(prop, this.$isFillable(prop))
       if (this.$isFillable(prop)) {
         this[prop] = props[prop]
       } else if (this.$totallyGuarded()) {
