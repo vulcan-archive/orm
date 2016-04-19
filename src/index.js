@@ -11,6 +11,15 @@ export const createInstance = (options) => {
   return instance
 }
 
+export const setInstance = (orm) => {
+  if (!(orm instanceof ORM)) {
+    throw new Error('An instance of ORM needs to be used.')
+  }
+
+  instance = orm
+  return orm
+}
+
 export const getInstance = () => instance
 
 export class Model extends BaseModel {
