@@ -1,0 +1,62 @@
+{
+  "name": "@vulcan/orm",
+  "version": "0.1.0",
+  "description": "MySQL, PostgreSQL & SQLite3 ORM for Vulcan MVC Framework",
+  "main": "./dist/index.js",
+  "scripts": {
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean",
+    "build": "babel src --out-dir dist",
+    "develop": "npm run build -- --watch",
+    "prepublish": "npm run build",
+    "test": "mocha test/"
+  },
+  "repository": "vulcanjs/orm",
+  "keywords": [
+    "mvc",
+    "framework",
+    "request",
+    "route",
+    "rack",
+    "middleware",
+    "application",
+    "http",
+    "web",
+    "database",
+    "orm",
+    "mysql",
+    "mariadb",
+    "postgres",
+    "sqlite"
+  ],
+  "author": "Josh Manders <josh@joshmanders.com> (https://www.joshmanders.com)",
+  "license": "MIT",
+  "homepage": "https://github.com/vulcanjs",
+  "dependencies": {
+    "bluebird": "~3.3.5",
+    "inflection": "~1.9.0",
+    "knex": "~0.10.0",
+    "lodash": "~4.10.0"
+  },
+  "devDependencies": {
+    "babel-cli": "~6.7.5",
+    "babel-eslint": "~6.0.2",
+    "babel-preset-nodejs-lts": "~1.2.1",
+    "co": "~4.6.0",
+    "rimraf": "~2.5.2",
+    "sqlite3": "~3.1.3",
+    "standard": "~6.0.8"
+  },
+  "standard": {
+    "parser": "babel-eslint",
+    "global": [
+      "describe",
+      "it"
+    ]
+  },
+  "babel": {
+    "presets": [
+      "nodejs-lts"
+    ]
+  }
+}
