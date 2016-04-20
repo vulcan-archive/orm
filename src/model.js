@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { tableize } from 'inflection'
-import { defaults, isInteger, intersection } from 'lodash'
+import { defaults, isInteger, intersection, omit, camelCase } from 'lodash'
+import moment from 'moment'
 import QueryBuilder from './query-builder'
 import { MassAssignmentError } from './errors'
 
@@ -20,8 +21,6 @@ export default class Model {
   static $unguarded = false
 
   static $hidden = []
-
-  static $visible = []
 
   static get table () {
     return this.$table ? this.$table : tableize(this.name)
@@ -56,8 +55,12 @@ export default class Model {
     this.$unguarded = Boolean(unguarded)
   }
 
+  static set hidden (hidden) {
+    this.$hidden = Array.isArray(hidden) ? hidden : [hidden]
+  }
+
   static query () {
-    return new QueryBuilder(this)
+    return (new QueryBuilder()).setModel(this)
   }
 
   static all () {
@@ -86,11 +89,32 @@ export default class Model {
 
   constructor (props = {}, fresh = true) {
     this.$original = fresh ? {} : defaults({}, props)
+    this.$props = defaults({}, this.$original)
     this.$fresh = fresh
     this.$relations = {}
     this.$events = new EventEmitter()
     this.$events.setMaxListeners(0)
+    this.setProps(this.$original)
     this.fill(props)
+  }
+
+  setProps (props) {
+    for (const prop in props) {
+      Object.defineProperty(this, prop, {
+        configurable: true,
+        enumerable: true,
+        get: () => {
+          if (this.constructor.$hasTimestamps && !!~this.constructor.$timestampKeys.indexOf(prop)) {
+            return this.$morphGetter(prop, this.$props[prop])
+          }
+          return this.$props[prop]
+        },
+        set: (newVal) => {
+          this.$props[prop] = this.$morphSetter(prop, newVal)
+        }
+      })
+    }
+    return this
   }
 
   fill (props) {
@@ -115,6 +139,10 @@ export default class Model {
   }
 
   $totallyGuarded () {
+    if (!this.$fresh) {
+      return false
+    }
+
     if (this.constructor.$fillable.length === 0) {
       const $guarded = this.constructor.$guarded
       if ($guarded.length === 1 && $guarded[0] === '*') {
@@ -151,6 +179,34 @@ export default class Model {
     return false
   }
 
+  $morphGetter (prop, value) {
+    const getter = camelCase(`get_${prop}`)
+
+    if (this.$isTimestampable(prop)) {
+      value = moment(value)
+    }
+
+    if (this[getter]) {
+      return this[getter](value)
+    }
+
+    return value
+  }
+
+  $morphSetter (prop, value) {
+    const setter = camelCase(`set_${prop}`)
+
+    if (this[setter]) {
+      return this[setter](value)
+    }
+
+    return value
+  }
+
+  $isTimestampable (prop) {
+    return this.constructor.$hasTimestamps && !!~this.constructor.$timestampKeys.indexOf(prop)
+  }
+
   newQuery () {
     return this.constructor.query()
   }
@@ -177,39 +233,66 @@ export default class Model {
 
   save () {
     const changedOrNew = {}
-    Object
-      .getOwnPropertyNames(this)
-      .filter((prop) => !prop.startsWith('$'))
-      .filter((prop) => !(this.$original.hasOwnProperty(prop) && this.$original[prop] === this[prop]))
+    Object.keys(this.$props)
+      .filter((prop) => !this.$diff(prop))
       .forEach((prop) => {
         changedOrNew[prop] = this[prop]
       })
-
+    Object.getOwnPropertyNames(this)
+      .filter((prop) => !this.$diff(prop))
+      .filter((prop) => !prop.startsWith('$'))
+      .filter((prop) => !~Object.keys(changedOrNew).indexOf(prop))
+      .forEach((prop) => {
+        changedOrNew[prop] = this.$morphSetter(prop, this[prop])
+      })
     if (this.$fresh) {
       return this.$insert(changedOrNew)
     }
     return this.update(changedOrNew)
   }
 
+  $diff (prop) {
+    return (this.$original.hasOwnProperty(prop) && this.$original[prop] === this.$props[prop])
+  }
+
   $insert (props) {
     const primaryKey = this.constructor.$primaryKey
+    const timestamps = this.constructor.$hasTimestamps ? {
+      created_at: moment().toJSON(),
+      updated_at: moment().toJSON()
+    } : {}
+    const fields = defaults({}, timestamps, props)
 
     return this.newQuery()
-      .insert(props, true)
+      .insert(fields, true)
       .then((res) => {
-        this.$original = defaults({}, props, { [primaryKey]: res[0] })
-        this[primaryKey] = res[0]
+        this.$original = defaults({}, fields, { [primaryKey]: res[0] })
+        this.setProps(this.$original)
         return this
       })
   }
 
   update (props) {
+    const timestamps = this.constructor.$hasTimestamps ? {
+      updated_at: moment().toJSON()
+    } : {}
+    const fields = defaults({}, timestamps, props)
+
     return this.query()
-      .update(props)
+      .update(fields)
       .then((res) => {
-        this.$original = defaults({}, props, this.$original)
-        Object.assign(this, props)
+        this.$original = defaults({}, fields, this.$original)
+        this.setProps(this.$original)
         return this
       })
+  }
+
+  toJSON () {
+    const props = omit(this.$props, this.constructor.$hidden)
+    Object.keys(props)
+      .forEach((prop) => {
+        props[prop] = this.$morphGetter(prop, props[prop])
+      })
+    return props
   }
 }
