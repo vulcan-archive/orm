@@ -1,16 +1,23 @@
 import { isArray, isObject } from 'lodash'
 import DefaultMethods from 'knex/lib/query/methods'
+import { getInstance } from '.'
+import { ModelNotFoundError } from './errors'
 
 const ignoredMethods = ['from', 'fromJS', 'into', 'table', 'queryBuilder']
 const allowedMethods = DefaultMethods.filter((method) => !~ignoredMethods.indexOf(method))
 
 export default class QueryBuilder {
-  constructor (Model) {
+  setModel (Model) {
     this.$Model = Model
-    this.$db = this.$Model.$instance.$db.from(this.$Model.table)
+    this.table(this.$Model.table)
+    return this
   }
 
   $toModel (res) {
+    if (!this.$Model) {
+      return res
+    }
+
     if (isArray(res)) {
       return res.map((r) => this.$toModel(r))
     }
@@ -18,9 +25,19 @@ export default class QueryBuilder {
     return isObject(res) ? new this.$Model(res, false) : res
   }
 
+  table (tableName) {
+    this.$db = getInstance().$db.from(tableName)
+    return this
+  }
+
   then (...args) {
     return this.$db
-      .then((res) => this.$toModel(res))
+      .then((data) => {
+        if (!data && this.$Model) {
+          throw new ModelNotFoundError(this.$Model.name)
+        }
+        return this.$toModel(data)
+      })
       .then(...args)
   }
 }
