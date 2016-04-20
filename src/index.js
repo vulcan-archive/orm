@@ -1,10 +1,19 @@
 import ORM from './orm'
 import BaseModel from './model'
-import { MissingConnectionError } from './errors'
+import {
+  MissingConnectionError,
+  MassAssignmentError,
+  ModelNotFoundError
+} from './errors'
 
 let instance = false
 
-export { ORM }
+export {
+  ORM,
+  MissingConnectionError,
+  MassAssignmentError,
+  ModelNotFoundError
+}
 
 export const createInstance = (options) => {
   instance = new ORM(options)
@@ -23,10 +32,6 @@ export const setInstance = (orm) => {
 export const getInstance = () => instance
 
 export class Model extends BaseModel {
-  static get $instance () {
-    return instance
-  }
-
   constructor (props, isNew) {
     super(props, isNew)
     if (!instance) {
