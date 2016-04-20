@@ -36,7 +36,8 @@
     "bluebird": "~3.3.5",
     "inflection": "~1.9.0",
     "knex": "~0.10.0",
-    "lodash": "~4.10.0"
+    "lodash": "~4.10.0",
+    "moment": "~2.13.0"
   },
   "devDependencies": {
     "babel-cli": "~6.7.5",
