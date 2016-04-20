@@ -18,3 +18,9 @@ export class MassAssignmentError extends ORMError {
     super(`Mass assignment error: ${key}`)
   }
 }
+
+export class ModelNotFoundError extends ORMError {
+  constructor (model) {
+    super(`No query results for model [${model}].`)
+  }
+}
