@@ -1,6 +1,7 @@
 import { defaultsDeep } from 'lodash'
 import knex from 'knex'
 import { MissingConnectionError } from './errors'
+import QueryBuilder from './query-builder'
 
 const driverMappings = { sqlite: 'sqlite3', postgres: 'pg', mysql: 'mysql' }
 
@@ -15,6 +16,10 @@ export default class ORM {
       client: this.$client,
       useNullAsDefault: this.$options.useNullAsDefault
     }))
+  }
+
+  query (tableName) {
+    return (new QueryBuilder()).table(tableName)
   }
 
   destroy (...args) {
