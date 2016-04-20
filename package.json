@@ -1,6 +1,6 @@
 {
   "name": "@vulcan/orm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MySQL, PostgreSQL & SQLite3 ORM for Vulcan MVC Framework",
   "main": "./dist/index.js",
   "files": ["dist/"],
