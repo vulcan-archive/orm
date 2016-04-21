@@ -5,14 +5,23 @@ import moment from 'moment'
 import QueryBuilder from './query-builder'
 import { MassAssignmentError } from './errors'
 
+const CREATED_AT = 'created_at'
+const UPDATED_AT = 'updated_at'
+const DELETED_AT = 'deleted_at'
+
 export default class Model {
+
   static $table = false
 
   static $primaryKey = 'id'
 
-  static $timestampKeys = ['created_at', 'updated_at']
+  static $timestampKeys = [CREATED_AT, UPDATED_AT, DELETED_AT]
 
   static $hasTimestamps = true
+
+  static $softDeletes = true
+
+  static $withTrashed = false
 
   static $fillable = []
 
@@ -43,6 +52,10 @@ export default class Model {
     this.$hasTimestamps = Boolean(hasTimestamps)
   }
 
+  static set softDeletes (softDeletes) {
+    this.$softDeletes = Boolean(softDeletes)
+  }
+
   static set fillable (fillable) {
     this.$fillable = Array.isArray(fillable) ? fillable : [fillable]
   }
@@ -60,7 +73,14 @@ export default class Model {
   }
 
   static query () {
-    return (new QueryBuilder()).setModel(this)
+    const query = (new QueryBuilder()).setModel(this)
+    if (this.$softDeletes && !this.$withTrashed) {
+      return query.where({ [DELETED_AT]: null })
+    }
+    if (this.$withTrashed) {
+      this.$withTrashed = false
+    }
+    return query
   }
 
   static all () {
@@ -80,6 +100,11 @@ export default class Model {
       return this.where(this.$primaryKey, args).first()
     }
     return this.where(args).first()
+  }
+
+  static withTrashed () {
+    this.$withTrashed = true
+    return this
   }
 
   static create (props = {}) {
@@ -104,10 +129,7 @@ export default class Model {
         configurable: true,
         enumerable: true,
         get: () => {
-          if (this.constructor.$hasTimestamps && !!~this.constructor.$timestampKeys.indexOf(prop)) {
-            return this.$morphGetter(prop, this.$props[prop])
-          }
-          return this.$props[prop]
+          return this.$morphGetter(prop, this.$props[prop])
         },
         set: (newVal) => {
           this.$props[prop] = this.$morphSetter(prop, newVal)
@@ -182,7 +204,7 @@ export default class Model {
   $morphGetter (prop, value) {
     const getter = camelCase(`get_${prop}`)
 
-    if (this.$isTimestampable(prop)) {
+    if (this.$isTimestampable(prop) && value !== null) {
       value = moment(value)
     }
 
@@ -258,8 +280,8 @@ export default class Model {
   $insert (props) {
     const primaryKey = this.constructor.$primaryKey
     const timestamps = this.constructor.$hasTimestamps ? {
-      created_at: moment().toJSON(),
-      updated_at: moment().toJSON()
+      [CREATED_AT]: moment().toJSON(),
+      [UPDATED_AT]: moment().toJSON()
     } : {}
     const fields = defaults({}, timestamps, props)
 
@@ -267,6 +289,7 @@ export default class Model {
       .insert(fields, true)
       .then((res) => {
         this.$original = defaults({}, fields, { [primaryKey]: res[0] })
+        this.$props = defaults({}, this.$original)
         this.setProps(this.$original)
         return this
       })
@@ -274,7 +297,7 @@ export default class Model {
 
   update (props) {
     const timestamps = this.constructor.$hasTimestamps ? {
-      updated_at: moment().toJSON()
+      [UPDATED_AT]: moment().toJSON()
     } : {}
     const fields = defaults({}, timestamps, props)
 
@@ -285,6 +308,13 @@ export default class Model {
         this.setProps(this.$original)
         return this
       })
+  }
+
+  destroy () {
+    if (this.constructor.$softDeletes) {
+      return this.update({ deleted_at: moment().toJSON() })
+    }
+    return this.query().del()
   }
 
   toJSON () {
