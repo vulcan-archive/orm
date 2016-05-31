@@ -3,7 +3,9 @@
   "version": "0.1.1",
   "description": "MySQL, PostgreSQL & SQLite3 ORM for Vulcan MVC Framework",
   "main": "./dist/index.js",
-  "files": ["dist/"],
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "clean": "rimraf dist",
     "prebuild": "npm run clean",
@@ -34,6 +36,7 @@
   "license": "MIT",
   "homepage": "https://github.com/vulcanjs",
   "dependencies": {
+    "@vulcan/errors": "*",
     "bluebird": "~3.3.5",
     "inflection": "~1.9.0",
     "knex": "~0.10.0",
@@ -41,12 +44,11 @@
     "moment": "~2.13.0"
   },
   "devDependencies": {
+    "@niftyco/babel-node": "~1.2.0",
     "babel-cli": "~6.7.5",
     "babel-eslint": "~6.0.2",
-    "babel-preset-nodejs-lts": "~1.2.1",
-    "co": "~4.6.0",
+    "pg": "~4.5.5",
     "rimraf": "~2.5.2",
-    "sqlite3": "~3.1.3",
     "standard": "~6.0.8"
   },
   "standard": {
@@ -58,7 +60,7 @@
   },
   "babel": {
     "presets": [
-      "nodejs-lts"
+      "@niftyco/babel-node"
     ]
   }
 }

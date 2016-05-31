@@ -1,7 +1,7 @@
 import { isArray, isObject } from 'lodash'
 import DefaultMethods from 'knex/lib/query/methods'
+import { ModelNotFoundError } from '@vulcan/errors'
 import { getInstance } from '.'
-import { ModelNotFoundError } from './errors'
 
 const ignoredMethods = ['from', 'fromJS', 'into', 'table', 'queryBuilder']
 const allowedMethods = DefaultMethods.filter((method) => !~ignoredMethods.indexOf(method))
@@ -28,6 +28,10 @@ export default class QueryBuilder {
   table (tableName) {
     this.$db = getInstance().$db.from(tableName)
     return this
+  }
+
+  toString () {
+    return this.$db.toString()
   }
 
   then (...args) {
