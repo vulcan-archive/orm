@@ -1,9 +1,10 @@
 import { EventEmitter } from 'events'
+import Promise from 'bluebird'
 import { tableize } from 'inflection'
 import { defaults, isInteger, intersection, omit, camelCase } from 'lodash'
 import moment from 'moment'
+import { MassAssignmentError } from '@vulcan/errors'
 import QueryBuilder from './query-builder'
-import { MassAssignmentError } from './errors'
 
 const CREATED_AT = 'created_at'
 const UPDATED_AT = 'updated_at'
@@ -30,6 +31,8 @@ export default class Model {
   static $unguarded = false
 
   static $hidden = []
+
+  static $append = []
 
   static get table () {
     return this.$table ? this.$table : tableize(this.name)
@@ -72,6 +75,10 @@ export default class Model {
     this.$hidden = Array.isArray(hidden) ? hidden : [hidden]
   }
 
+  static set append (append) {
+    this.$append = Array.isArray(append) ? append : [append]
+  }
+
   static query () {
     const query = (new QueryBuilder()).setModel(this)
     if (this.$softDeletes && !this.$withTrashed) {
@@ -97,7 +104,7 @@ export default class Model {
 
   static find (args) {
     if (isInteger(args)) {
-      return this.where(this.$primaryKey, args).first()
+      return this.where(this.$primaryKey, Number(args)).first()
     }
     return this.where(args).first()
   }
@@ -108,29 +115,37 @@ export default class Model {
   }
 
   static create (props = {}) {
+    if (Array.isArray(props)) {
+      return this.createMany(props)
+    }
     const model = new this(props)
     return model.save()
+  }
+
+  static createMany (inserts = []) {
+    return Promise.all(inserts.map((props) => this.create(props)))
   }
 
   constructor (props = {}, fresh = true) {
     this.$original = fresh ? {} : defaults({}, props)
     this.$props = defaults({}, this.$original)
     this.$fresh = fresh
-    this.$relations = {}
     this.$events = new EventEmitter()
     this.$events.setMaxListeners(0)
-    this.setProps(this.$original)
+    this.$setProps(this.$original)
     this.fill(props)
   }
 
-  setProps (props) {
+  get props () {
+    return this.$props
+  }
+
+  $setProps (props) {
     for (const prop in props) {
       Object.defineProperty(this, prop, {
         configurable: true,
         enumerable: true,
-        get: () => {
-          return this.$morphGetter(prop, this.$props[prop])
-        },
+        get: () => this.$morphGetter(prop, this.$props[prop]),
         set: (newVal) => {
           this.$props[prop] = this.$morphSetter(prop, newVal)
         }
@@ -238,7 +253,6 @@ export default class Model {
 
     return this.newQuery()
       .where(primaryKey, this[primaryKey])
-      .first()
   }
 
   on (...args) {
@@ -251,6 +265,11 @@ export default class Model {
 
   once (...args) {
     return this.$emitter.once(...args)
+  }
+
+  hasOne (...args) {
+    return 'author'
+    return new HasOne(this, ...args)
   }
 
   save () {
@@ -286,11 +305,11 @@ export default class Model {
     const fields = defaults({}, timestamps, props)
 
     return this.newQuery()
-      .insert(fields, true)
+      .insert(fields, primaryKey)
       .then((res) => {
         this.$original = defaults({}, fields, { [primaryKey]: res[0] })
         this.$props = defaults({}, this.$original)
-        this.setProps(this.$original)
+        this.$setProps(this.$original)
         return this
       })
   }
@@ -301,11 +320,11 @@ export default class Model {
     } : {}
     const fields = defaults({}, timestamps, props)
 
-    return this.query()
+    return this.query().first()
       .update(fields)
       .then((res) => {
         this.$original = defaults({}, fields, this.$original)
-        this.setProps(this.$original)
+        this.$setProps(this.$original)
         return this
       })
   }
@@ -314,15 +333,22 @@ export default class Model {
     if (this.constructor.$softDeletes) {
       return this.update({ deleted_at: moment().toJSON() })
     }
-    return this.query().del()
+    return this.query().first().del()
   }
 
   toJSON () {
     const props = omit(this.$props, this.constructor.$hidden)
+    const appends = this.constructor.$append
+
     Object.keys(props)
       .forEach((prop) => {
         props[prop] = this.$morphGetter(prop, props[prop])
       })
+
+    appends.forEach((prop) => {
+      props[prop] = this[prop]
+    })
+
     return props
   }
 }

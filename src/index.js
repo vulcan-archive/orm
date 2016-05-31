@@ -4,7 +4,7 @@ import {
   MissingConnectionError,
   MassAssignmentError,
   ModelNotFoundError
-} from './errors'
+} from '@vulcan/errors'
 
 let instance = false
 
